@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.activiti.org/test">
+  <signal id="CardSuiteReportsReadyRef" name="CardSuiteReportsReadyRef" activiti:scope="global"></signal>
+  <signal id="CardSuiteReportsReadyRepeatRef" name="CardSuiteReportsReadyRepeatRef" activiti:scope="global"></signal>
+  <process id="CardSuiteReportDelivery" name="CardSuiteReportDelivery" isExecutable="true">
+    <callActivity id="callactivity1" name="Get reports from Staging" calledElement="FileTransferTask" activiti:calledElementType="key" activiti:fallbackToDefaultTenant="false">
+      <extensionElements>
+        <activiti:in sourceExpression="CardSuiteReportDelivery.getCardSuiteReports" target="ftTask"></activiti:in>
+        <activiti:in sourceExpression="{}" target="ftParams"></activiti:in>
+        <activiti:out source="ftResult" target="fileList"></activiti:out>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow1" sourceRef="signalstartevent1" targetRef="callactivity1"></sequenceFlow>
+    <serviceTask id="servicetask1" name=" Create file collection" activiti:class="com.decta.delegate.common.CollectionMaker">
+      <extensionElements>
+        <activiti:field name="jsonArray">
+          <activiti:expression><![CDATA[${fileList}]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="outVar">
+          <activiti:string><![CDATA[fileCollection]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <callActivity id="callactivity2" name="Deliver reports" calledElement="ReportDeliverySubprocess" activiti:calledElementType="key" activiti:fallbackToDefaultTenant="false">
+      <extensionElements>
+        <activiti:in source="file" target="file"></activiti:in>
+      </extensionElements>
+      <multiInstanceLoopCharacteristics isSequential="true" activiti:collection="fileCollection" activiti:elementVariable="file"></multiInstanceLoopCharacteristics>
+    </callActivity>
+    <endEvent id="endevent1" name="End"></endEvent>
+    <endEvent id="endevent2" name="End"></endEvent>
+    <startEvent id="signalstartevent1" name="Message start" isInterrupting="true">
+      <signalEventDefinition signalRef="CardSuiteReportsReadyRef"></signalEventDefinition>
+    </startEvent>
+    <startEvent id="signalstartevent2" name="Signal start" isInterrupting="true">
+      <signalEventDefinition signalRef="CardSuiteReportsReadyRepeatRef"></signalEventDefinition>
+    </startEvent>
+    <sequenceFlow id="flow6" sourceRef="signalstartevent2" targetRef="callactivity1"></sequenceFlow>
+    <sequenceFlow id="flow2" sourceRef="callactivity1" targetRef="servicetask1"></sequenceFlow>
+    <sequenceFlow id="flow5" sourceRef="callactivity2" targetRef="endevent2"></sequenceFlow>
+    <sequenceFlow id="flow3" sourceRef="servicetask1" targetRef="callactivity2"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_CardSuiteReportDelivery">
+    <bpmndi:BPMNPlane bpmnElement="CardSuiteReportDelivery" id="BPMNPlane_CardSuiteReportDelivery">
+      <bpmndi:BPMNShape bpmnElement="callactivity1" id="BPMNShape_callactivity1">
+        <omgdc:Bounds height="55.0" width="105.0" x="330.0" y="310.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="servicetask1" id="BPMNShape_servicetask1">
+        <omgdc:Bounds height="55.0" width="105.0" x="470.0" y="310.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity2" id="BPMNShape_callactivity2">
+        <omgdc:Bounds height="55.0" width="105.0" x="620.0" y="310.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent1" id="BPMNShape_endevent1">
+        <omgdc:Bounds height="28.0" width="28.0" x="770.0" y="320.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent2" id="BPMNShape_endevent2">
+        <omgdc:Bounds height="28.0" width="28.0" x="770.0" y="320.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signalstartevent1" id="BPMNShape_signalstartevent1">
+        <omgdc:Bounds height="30.0" width="30.0" x="240.0" y="354.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signalstartevent2" id="BPMNShape_signalstartevent2">
+        <omgdc:Bounds height="30.0" width="30.0" x="240.0" y="290.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="flow1" id="BPMNEdge_flow1">
+        <omgdi:waypoint x="269.51701667165275" y="365.40144794967284"></omgdi:waypoint>
+        <omgdi:waypoint x="329.9999999999999" y="350.4582352941176"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow2" id="BPMNEdge_flow2">
+        <omgdi:waypoint x="434.95000000000005" y="337.5"></omgdi:waypoint>
+        <omgdi:waypoint x="470.0" y="337.5"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow3" id="BPMNEdge_flow3">
+        <omgdi:waypoint x="574.95" y="337.5"></omgdi:waypoint>
+        <omgdi:waypoint x="619.9999999999422" y="337.5"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow5" id="BPMNEdge_flow5">
+        <omgdi:waypoint x="724.9499999999995" y="335.85201793721967"></omgdi:waypoint>
+        <omgdi:waypoint x="770.0067579948264" y="334.43768101804824"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow6" id="BPMNEdge_flow6">
+        <omgdi:waypoint x="269.48922910576033" y="308.69359051964346"></omgdi:waypoint>
+        <omgdi:waypoint x="330.0" y="324.11764705882354"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
