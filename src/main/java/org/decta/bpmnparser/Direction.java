@@ -1,4 +1,4 @@
-package org.decta;
+package org.decta.bpmnparser;
 
 import java.util.Arrays;
 import java.util.List;

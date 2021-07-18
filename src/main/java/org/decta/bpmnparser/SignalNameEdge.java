@@ -1,4 +1,4 @@
-package org.decta;
+package org.decta.bpmnparser;
 
 import org.jgrapht.graph.DefaultEdge;
 
@@ -12,6 +12,16 @@ public class SignalNameEdge extends DefaultEdge {
 
     public String getSignalName() {
         return signalName;
+    }
+
+    @Override
+    protected Object getSource() {
+        return super.getSource();
+    }
+
+    @Override
+    protected Object getTarget() {
+        return super.getTarget();
     }
 
     @Override

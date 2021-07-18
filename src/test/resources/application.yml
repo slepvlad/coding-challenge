@@ -1,0 +1,3 @@
+path:
+  input: "src/test/resources/bpmn"
+  output: "src/test/resources/graph.png"

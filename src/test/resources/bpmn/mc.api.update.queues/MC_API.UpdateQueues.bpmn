@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.activiti.org/processdef">
+  <signal id="MC_API.updateQueues" name="MC_API.updateQueues" activiti:scope="global"></signal>
+  <process id="MC_API.UpdateQueues" name="MC_API.UpdateQueues" isExecutable="true">
+    <scriptTask id="sid-A58C1A01-F3BD-4307-B210-D23091DFC644" name="Setup pid" scriptFormat="javascript" activiti:autoStoreVariables="false">
+      <script><![CDATA[var date = new Date();
+execution.setVariable("pid",(date.getFullYear()+ ("0"+(date.getMonth()+1)).slice(-2) + ("0" + date.getDate()).slice(-2)));
+var getEnvClass = Java.type('com.decta.delegate.common.SysEnvGetter');
+var host = getEnvClass.getEnv('HOST_NAME');
+host = host=='boapp'?'':host+': ';
+execution.setVariable('host',host);]]></script>
+    </scriptTask>
+    <startEvent id="sid-3B85B554-049C-4E66-AC34-9246AD7037F0" isInterrupting="true">
+      <signalEventDefinition signalRef="MC_API.updateQueues"></signalEventDefinition>
+    </startEvent>
+    <sequenceFlow id="sid-77FE88F5-77F6-4962-8853-4C6C428E0126" sourceRef="sid-3B85B554-049C-4E66-AC34-9246AD7037F0" targetRef="sid-A58C1A01-F3BD-4307-B210-D23091DFC644"></sequenceFlow>
+    <callActivity id="sid-8AFEAEEB-0563-4350-BF03-BFD0AD75D272" name="MC API call" calledElement="McApiTask">
+      <extensionElements>
+        <activiti:in sourceExpression="updateQueues" target="mcApiCall"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="sid-20FEF624-45F5-4A72-89E2-3EEAA28A21C3" sourceRef="sid-A58C1A01-F3BD-4307-B210-D23091DFC644" targetRef="sid-8AFEAEEB-0563-4350-BF03-BFD0AD75D272"></sequenceFlow>
+    <endEvent id="sid-B3734B76-6AE9-42BA-A83E-A7C419C573B6"></endEvent>
+    <serviceTask id="sid-D2237EE1-22DA-47F7-8293-63D3905F8509" name="Send signal to Activiti" activiti:class="com.decta.delegate.SendSignalToActiviti">
+      <extensionElements>
+        <activiti:field name="signalName">
+          <activiti:string><![CDATA[MC_API.QueuesUpdated]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="variables">
+          <activiti:string><![CDATA[{}]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="sid-2BCFA415-4701-4E5F-9C2C-C722B08E4FC9" sourceRef="sid-D2237EE1-22DA-47F7-8293-63D3905F8509" targetRef="sid-B3734B76-6AE9-42BA-A83E-A7C419C573B6"></sequenceFlow>
+    <sequenceFlow id="sid-C8B36189-8750-475B-8640-B6133EFE843B" sourceRef="sid-8AFEAEEB-0563-4350-BF03-BFD0AD75D272" targetRef="sid-D2237EE1-22DA-47F7-8293-63D3905F8509"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_MC_API.UpdateQueues">
+    <bpmndi:BPMNPlane bpmnElement="MC_API.UpdateQueues" id="BPMNPlane_MC_API.UpdateQueues">
+      <bpmndi:BPMNShape bpmnElement="sid-A58C1A01-F3BD-4307-B210-D23091DFC644" id="BPMNShape_sid-A58C1A01-F3BD-4307-B210-D23091DFC644">
+        <omgdc:Bounds height="80.0" width="100.0" x="236.5" y="240.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-3B85B554-049C-4E66-AC34-9246AD7037F0" id="BPMNShape_sid-3B85B554-049C-4E66-AC34-9246AD7037F0">
+        <omgdc:Bounds height="30.0" width="30.0" x="135.0" y="265.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-8AFEAEEB-0563-4350-BF03-BFD0AD75D272" id="BPMNShape_sid-8AFEAEEB-0563-4350-BF03-BFD0AD75D272">
+        <omgdc:Bounds height="80.0" width="100.0" x="420.0" y="240.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-B3734B76-6AE9-42BA-A83E-A7C419C573B6" id="BPMNShape_sid-B3734B76-6AE9-42BA-A83E-A7C419C573B6">
+        <omgdc:Bounds height="28.0" width="28.0" x="735.0" y="266.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-D2237EE1-22DA-47F7-8293-63D3905F8509" id="BPMNShape_sid-D2237EE1-22DA-47F7-8293-63D3905F8509">
+        <omgdc:Bounds height="80.0" width="100.0" x="570.0" y="240.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="sid-2BCFA415-4701-4E5F-9C2C-C722B08E4FC9" id="BPMNEdge_sid-2BCFA415-4701-4E5F-9C2C-C722B08E4FC9">
+        <omgdi:waypoint x="669.949999999939" y="280.0"></omgdi:waypoint>
+        <omgdi:waypoint x="735.0" y="280.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-C8B36189-8750-475B-8640-B6133EFE843B" id="BPMNEdge_sid-C8B36189-8750-475B-8640-B6133EFE843B">
+        <omgdi:waypoint x="519.9499999998727" y="280.0"></omgdi:waypoint>
+        <omgdi:waypoint x="569.9999999999363" y="280.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-77FE88F5-77F6-4962-8853-4C6C428E0126" id="BPMNEdge_sid-77FE88F5-77F6-4962-8853-4C6C428E0126">
+        <omgdi:waypoint x="164.94999901918436" y="280.0"></omgdi:waypoint>
+        <omgdi:waypoint x="236.4999999998272" y="280.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="sid-20FEF624-45F5-4A72-89E2-3EEAA28A21C3" id="BPMNEdge_sid-20FEF624-45F5-4A72-89E2-3EEAA28A21C3">
+        <omgdi:waypoint x="336.44999999999754" y="280.0"></omgdi:waypoint>
+        <omgdi:waypoint x="419.99999999991326" y="280.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
