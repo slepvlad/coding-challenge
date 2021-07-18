@@ -1,0 +1,767 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.activiti.org/test">
+  <signal id="stopperPush" name="stopperPush"></signal>
+  <signal id="AcquiringCompleted" name="AcquiringCompleted" activiti:scope="global"></signal>
+  <process id="Common_Acquiring_EOD" name="Common_Acquiring_EOD" isExecutable="true">
+    <startEvent id="startevent1" name="Start"></startEvent>
+    <endEvent id="endevent1" name="End"></endEvent>
+    <sequenceFlow id="flow4" sourceRef="startevent1" targetRef="parallelgateway1"></sequenceFlow>
+    <parallelGateway id="parallelgateway1" name="Exclusive Gateway"></parallelGateway>
+    <callActivity id="callactivity4" name="PayomaSMS_51" calledElement="CScripter">
+      <extensionElements>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in sourceExpression="['--reports','PayomaSMS_51']" target="csParams"></activiti:in>
+        <activiti:in sourceExpression="[]" target="scriptParams"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <callActivity id="callactivity5" name="H-file processing" calledElement="HFileProcessing">
+      <extensionElements>
+        <activiti:in source="pid" target="pid"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <callActivity id="callactivity10" name="Get activated merchants" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="getActivatedMerchantsByDate" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{&quot;date&quot;:&quot;${date}&quot;}" target="sqlParams"></activiti:in>
+        <activiti:out source="sqlTask__0" target="activatedMerchants"></activiti:out>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow25" sourceRef="parallelgateway2" targetRef="callactivity10"></sequenceFlow>
+    <scriptTask id="scripttask1" name="Concatenate result into a single variable" scriptFormat="javascript" activiti:autoStoreVariables="false">
+      <script>var result = JSON.parse(execution.getVariable("activatedMerchants"));
+var resultString = "";
+if (result.length &lt; 3) {
+	execution.setVariable("sendActivatedMerchants","false");
+} else {
+	for (i = 0; i&lt;result.length; i++) {
+		obj = result[i];
+		resultString = resultString + obj.RES + "\n";
+	}
+	execution.setVariable("activatedMerchantsString", resultString);
+	execution.setVariable("sendActivatedMerchants","true");
+}</script>
+    </scriptTask>
+    <sequenceFlow id="flow26" sourceRef="callactivity10" targetRef="scripttask1"></sequenceFlow>
+    <serviceTask id="mailtask1" name="Email it" activiti:type="mail">
+      <extensionElements>
+        <activiti:field name="text">
+          <activiti:expression><![CDATA[Merchants activated today:
+
+${activatedMerchantsString}
+
+Sincerely yours,
+Activiti.]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="from">
+          <activiti:string><![CDATA[reports-no-reply@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="subject">
+          <activiti:string><![CDATA[New merchants activated today]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="to">
+          <activiti:string><![CDATA[merchant_data@decta.com]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow27" sourceRef="scripttask1" targetRef="exclusivegateway1"></sequenceFlow>
+    <endEvent id="endevent2" name="End"></endEvent>
+    <sequenceFlow id="flow28" sourceRef="mailtask1" targetRef="endevent2"></sequenceFlow>
+    <parallelGateway id="parallelgateway2" name="Parallel Gateway"></parallelGateway>
+    <sequenceFlow id="flow29" sourceRef="parallelgateway2" targetRef="callactivity5"></sequenceFlow>
+    <endEvent id="endevent3" name="End"></endEvent>
+    <sequenceFlow id="flow30" sourceRef="callactivity5" targetRef="callactivity11"></sequenceFlow>
+    <exclusiveGateway id="exclusivegateway1" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="flow31" sourceRef="exclusivegateway1" targetRef="mailtask1">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${sendActivatedMerchants == 'true'}]]></conditionExpression>
+    </sequenceFlow>
+    <endEvent id="endevent4" name="End"></endEvent>
+    <sequenceFlow id="flow32" sourceRef="exclusivegateway1" targetRef="endevent4">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${sendActivatedMerchants == 'false'}]]></conditionExpression>
+    </sequenceFlow>
+    <callActivity id="callactivity11" name="Transfer H-file" calledElement="FileTransfer">
+      <extensionElements>
+        <activiti:in sourceExpression="dectaHoldTransfer" target="ftTask"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow33" sourceRef="callactivity11" targetRef="endevent3"></sequenceFlow>
+    <callActivity id="callactivity13" name="Transact2 report" calledElement="IpspReporterSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="transact2" target="report"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in source="date" target="date"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <callActivity id="callactivity14" name="Get closed merchant transactions" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="GetClosedMerchantTransactions" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{}" target="sqlParams"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:out source="sqlTask__0" target="closedMerchantTransactions"></activiti:out>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow39" sourceRef="parallelgateway2" targetRef="callactivity14"></sequenceFlow>
+    <scriptTask id="scripttask2" name="Concatenate result into a single variable" scriptFormat="javascript" activiti:autoStoreVariables="false">
+      <script>var result = JSON.parse(execution.getVariable("closedMerchantTransactions"));
+var resultString = "";
+if (result.length &lt; 3) {
+	execution.setVariable("sendclosedMerchantTransactions","false");
+} else {
+	for (i = 0; i&lt;result.length; i++) {
+		obj = result[i];
+		resultString = resultString + obj.RES + "\n";
+	}
+	execution.setVariable("closedMerchantTransactionsString", resultString);
+	execution.setVariable("sendclosedMerchantTransactions","true");
+}</script>
+    </scriptTask>
+    <sequenceFlow id="flow40" sourceRef="callactivity14" targetRef="scripttask2"></sequenceFlow>
+    <exclusiveGateway id="exclusivegateway2" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="flow41" sourceRef="scripttask2" targetRef="exclusivegateway2"></sequenceFlow>
+    <endEvent id="endevent5" name="End"></endEvent>
+    <sequenceFlow id="flow42" sourceRef="exclusivegateway2" targetRef="endevent5">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${sendclosedMerchantTransactions == 'false'}]]></conditionExpression>
+    </sequenceFlow>
+    <serviceTask id="mailtask2" name="Email it" activiti:type="mail">
+      <extensionElements>
+        <activiti:field name="from">
+          <activiti:string><![CDATA[reports-no-reply@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="subject">
+          <activiti:string><![CDATA[Transactions for closed merchants and MIDs]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="text">
+          <activiti:expression><![CDATA[Transactions for closed merchants and MIDs
+
+${closedMerchantTransactionsString}
+
+Sincerely yours,
+Activiti.]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="to">
+          <activiti:string><![CDATA[merchant_data@decta.com]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow43" sourceRef="exclusivegateway2" targetRef="mailtask2">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${sendclosedMerchantTransactions == 'true'}]]></conditionExpression>
+    </sequenceFlow>
+    <endEvent id="endevent6" name="End"></endEvent>
+    <sequenceFlow id="flow44" sourceRef="mailtask2" targetRef="endevent6"></sequenceFlow>
+    <sequenceFlow id="flow45" sourceRef="callactivity4" targetRef="endevent1"></sequenceFlow>
+    <callActivity id="callactivity15" name="Check SLIPBUF records" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="MPCSgetSLIPBUFrecords" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{}" target="sqlParams"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:out source="sqlTask__0" target="resultJson"></activiti:out>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow46" sourceRef="parallelgateway1" targetRef="callactivity15"></sequenceFlow>
+    <exclusiveGateway id="exclusivegateway3" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="flow47" sourceRef="scripttask3" targetRef="exclusivegateway3"></sequenceFlow>
+    <serviceTask id="mailtask3" name="Notify admins" activiti:type="mail">
+      <extensionElements>
+        <activiti:field name="to">
+          <activiti:string><![CDATA[activitistatus@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="from">
+          <activiti:string><![CDATA[activiti@rietumu.lv]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="subject">
+          <activiti:string><![CDATA[Records in MPCS SLIP_BUF table]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="text">
+          <activiti:expression><![CDATA[${result} unprocessed records found in mpcs.slip_buf table.]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="cc">
+          <activiti:string><![CDATA[data_processing_escalation.mailgroup@decta.com]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow49" sourceRef="exclusivegateway3" targetRef="mailtask3">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${result != '0'}]]></conditionExpression>
+    </sequenceFlow>
+    <endEvent id="endevent7" name="End"></endEvent>
+    <sequenceFlow id="flow50" sourceRef="mailtask3" targetRef="endevent7"></sequenceFlow>
+    <scriptTask id="scripttask3" name="Parse result" scriptFormat="javascript" activiti:autoStoreVariables="false">
+      <script>resultJson = JSON.parse(execution.getVariable("resultJson"));
+result = resultJson[0].RESULT;
+execution.setVariable("result", result);</script>
+    </scriptTask>
+    <sequenceFlow id="flow51" sourceRef="callactivity15" targetRef="scripttask3"></sequenceFlow>
+    <endEvent id="endevent8" name="End"></endEvent>
+    <sequenceFlow id="flow52" sourceRef="exclusivegateway3" targetRef="endevent8">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${result == '0'}]]></conditionExpression>
+    </sequenceFlow>
+    <callActivity id="callactivity24" name="FDL Card Report" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="GetFDLCardReport" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{&quot;pid&quot;:&quot;${pid}&quot;}" target="sqlParams"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in source="date" target="date"></activiti:in>
+        <activiti:in sourceExpression="rep3_decta_acq_trx.csv" target="exportFile"></activiti:in>
+        <activiti:in sourceExpression="csv" target="exportFormat"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow67" sourceRef="parallelgateway2" targetRef="callactivity24"></sequenceFlow>
+    <callActivity id="callactivity25" name="FDL Card region Report" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="GetFDLCardRegionReport" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{&quot;pid&quot;:&quot;${pid}&quot;}" target="sqlParams"></activiti:in>
+        <activiti:in sourceExpression="rep3_decta_acq_trx_region.csv" target="exportFile"></activiti:in>
+        <activiti:in sourceExpression="csv" target="exportFormat"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in source="date" target="date"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow68" sourceRef="callactivity24" targetRef="callactivity25"></sequenceFlow>
+    <serviceTask id="servicetask1" name="Send reports" activiti:class="com.decta.util.activiti.SendEmailWithAttachments">
+      <extensionElements>
+        <activiti:field name="to">
+          <activiti:string><![CDATA[rep3_trx_merchants.mailgroup@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="from">
+          <activiti:string><![CDATA[reports-no-reply@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="attachments">
+          <activiti:expression><![CDATA[[{"name":"rep3_decta_acq_trx.csv","path":"/export/home/activiti/Staging/${pid}/rep3_decta_acq_trx.csv"},{"name":"rep3_decta_acq_trx_region.csv","path":"/export/home/activiti/Staging/${pid}/rep3_decta_acq_trx_region.csv"}]]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="body">
+          <activiti:expression><![CDATA[See attachments provided]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="cc">
+          <activiti:string><![CDATA[.]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="bcc">
+          <activiti:string><![CDATA[.]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="subject">
+          <activiti:string><![CDATA[DECTA_ACQ_TRX and DECTA_ACQ_TRX_REGION reports]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow69" sourceRef="callactivity25" targetRef="servicetask1"></sequenceFlow>
+    <endEvent id="endevent12" name="End"></endEvent>
+    <sequenceFlow id="flow70" sourceRef="servicetask1" targetRef="endevent12"></sequenceFlow>
+    <scriptTask id="scripttask4" name="Create collection" scriptFormat="javascript" activiti:autoStoreVariables="false">
+      <script>  var ArrayList = Java.type("java.util.ArrayList");
+  var list = new ArrayList();
+  feeList = JSON.parse(execution.getVariable("feeArray"));
+  for (i=0;i&lt;feeList.length;i++) {
+    list.add(feeList[i].FEE);
+  }
+  execution.setVariable("feeCollection", list);</script>
+    </scriptTask>
+    <callActivity id="callactivity26" name="Get list of fees" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="GetAcquiringFees" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{}" target="sqlParams"></activiti:in>
+        <activiti:out source="sqlTask__0" target="feeArray"></activiti:out>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow71" sourceRef="parallelgateway2" targetRef="callactivity26"></sequenceFlow>
+    <sequenceFlow id="flow72" sourceRef="callactivity26" targetRef="scripttask4"></sequenceFlow>
+    <callActivity id="callactivity27" name="Calculate fees" calledElement="CalculateFeeWithJira">
+      <extensionElements>
+        <activiti:in source="feeTask" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{&quot;pid&quot;:&quot;${pid}&quot;,&quot;datasource&quot;:&quot;DECTA&quot;}" target="sqlParams"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in source="date" target="date"></activiti:in>
+        <activiti:in source="mainJiraKey" target="mainJiraKey"></activiti:in>
+      </extensionElements>
+      <multiInstanceLoopCharacteristics isSequential="true" activiti:collection="feeCollection" activiti:elementVariable="feeTask"></multiInstanceLoopCharacteristics>
+    </callActivity>
+    <sequenceFlow id="flow73" sourceRef="scripttask4" targetRef="callactivity27"></sequenceFlow>
+    <callActivity id="callactivity28" name="Call ipsp_rsync script" calledElement="CommandExecutorSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="$DECTA_BASE/CScripter/scripts/ipsp_rsync ${pid}" target="command"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow75" sourceRef="callactivity13" targetRef="callactivity28"></sequenceFlow>
+    <inclusiveGateway id="inclusivegateway1" name="Inclusive Gateway"></inclusiveGateway>
+    <callActivity id="callactivity29" name="MC Out" calledElement="MC_Out"></callActivity>
+    <sequenceFlow id="flow77" sourceRef="inclusivegateway1" targetRef="callactivity29"></sequenceFlow>
+    <callActivity id="callactivity30" name="Common OutClr" calledElement="Common_OutClr">
+      <extensionElements>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in source="ftVISAoutgoingFile" target="ftVISAoutgoingFile"></activiti:in>
+        <activiti:in source="mcOutgoingR111" target="mcOutgoingR111"></activiti:in>
+        <activiti:in source="EmailsOff" target="EmailsOff"></activiti:in>
+        <activiti:in source="date" target="date"></activiti:in>
+        <activiti:in source="in_startup" target="in_startup"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow78" sourceRef="inclusivegateway1" targetRef="callactivity30"></sequenceFlow>
+    <callActivity id="callactivity31" name="VI Out" calledElement="VI_Out"></callActivity>
+    <sequenceFlow id="flow79" sourceRef="inclusivegateway1" targetRef="callactivity31"></sequenceFlow>
+    <inclusiveGateway id="inclusivegateway2" name="Inclusive Gateway"></inclusiveGateway>
+    <sequenceFlow id="flow80" sourceRef="callactivity30" targetRef="inclusivegateway2"></sequenceFlow>
+    <sequenceFlow id="flow81" sourceRef="callactivity29" targetRef="inclusivegateway2"></sequenceFlow>
+    <sequenceFlow id="flow82" sourceRef="callactivity31" targetRef="inclusivegateway2"></sequenceFlow>
+    <callActivity id="callactivity32" name="ipsp_rsync" calledElement="CommandExecutorSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="$DECTA_BASE/CScripter/scripts/ipsp_rsync ${pid}" target="command"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow83" sourceRef="inclusivegateway2" targetRef="callactivity32"></sequenceFlow>
+    <sequenceFlow id="flow84" sourceRef="callactivity32" targetRef="parallelgateway2"></sequenceFlow>
+    <callActivity id="callactivity33" name="Load fees to DWH" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="LoadFeesToDWH" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{&quot;pid&quot;:&quot;${pid}&quot;}" target="sqlParams"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow85" sourceRef="callactivity27" targetRef="inclusivegateway4"></sequenceFlow>
+    <sequenceFlow id="flow87" sourceRef="parallelgateway1" targetRef="inclusivegateway1"></sequenceFlow>
+    <sequenceFlow id="flow88" sourceRef="inclusivegateway3" targetRef="callactivity13"></sequenceFlow>
+    <sequenceFlow id="flow91" sourceRef="parallelgateway1" targetRef="callactivity4"></sequenceFlow>
+    <sequenceFlow id="flow92" sourceRef="callactivity33" targetRef="inclusivegateway3"></sequenceFlow>
+    <callActivity id="callactivity34" name="Load transactions to BI" calledElement="CommandExecutorSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="/dwh/CS/scripts/trx_etl_dwh_to_bi.sh" target="command"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in sourceExpression="dwh" target="servletUrl"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow93" sourceRef="inclusivegateway3" targetRef="callactivity34"></sequenceFlow>
+    <callActivity id="callactivity35" name="Cube refresh" calledElement="CommandExecutorSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="dwh" target="servletUrl"></activiti:in>
+        <activiti:in sourceExpression="/dwh/CS/scripts/trx_cube_refresh_wrapper.sh" target="command"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow94" sourceRef="callactivity34" targetRef="callactivity35"></sequenceFlow>
+    <intermediateThrowEvent id="signalintermediatethrowevent1" name="SignalThrowEvent">
+      <signalEventDefinition signalRef="AcquiringCompleted"></signalEventDefinition>
+    </intermediateThrowEvent>
+    <sequenceFlow id="flow95" sourceRef="callactivity35" targetRef="signalintermediatethrowevent1"></sequenceFlow>
+    <callActivity id="callactivity36" name="Create BI report" calledElement="CommandExecutorSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="/dwh/CS/scripts/auto_reports_after_data_load_wrapper.sh" target="command"></activiti:in>
+        <activiti:in sourceExpression="dwh" target="servletUrl"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow96" sourceRef="signalintermediatethrowevent1" targetRef="callactivity36"></sequenceFlow>
+    <endEvent id="endevent14" name="End"></endEvent>
+    <sequenceFlow id="flow97" sourceRef="callactivity36" targetRef="endevent14"></sequenceFlow>
+    <inclusiveGateway id="inclusivegateway3" name="Exclusive Gateway"></inclusiveGateway>
+    <inclusiveGateway id="inclusivegateway4" name="Inclusive Gateway"></inclusiveGateway>
+    <sequenceFlow id="flow98" sourceRef="inclusivegateway4" targetRef="callactivity33"></sequenceFlow>
+    <sequenceFlow id="flow100" sourceRef="callactivity38" targetRef="inclusivegateway3"></sequenceFlow>
+    <callActivity id="callactivity38" name="Generate Canopus file" calledElement="CanopusFileGeneration">
+      <extensionElements>
+        <activiti:in source="pid" target="pid"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow101" sourceRef="inclusivegateway4" targetRef="callactivity38"></sequenceFlow>
+    <serviceTask id="mailtask4" name="Notify support" activiti:type="mail">
+      <extensionElements>
+        <activiti:field name="to">
+          <activiti:string><![CDATA[tan@decta.com, merchant_data@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="from">
+          <activiti:string><![CDATA[reports-no-reply@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="subject">
+          <activiti:expression><![CDATA[Transact2 report for ${date} created and sent to SFTP]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="text">
+          <activiti:string><![CDATA[.]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow102" sourceRef="callactivity28" targetRef="mailtask4"></sequenceFlow>
+    <endEvent id="endevent15" name="End"></endEvent>
+    <sequenceFlow id="flow103" sourceRef="mailtask4" targetRef="endevent15"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Common_Acquiring_EOD">
+    <bpmndi:BPMNPlane bpmnElement="Common_Acquiring_EOD" id="BPMNPlane_Common_Acquiring_EOD">
+      <bpmndi:BPMNShape bpmnElement="startevent1" id="BPMNShape_startevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="1.0" y="483.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent1" id="BPMNShape_endevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="347.0" y="483.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="parallelgateway1" id="BPMNShape_parallelgateway1">
+        <omgdc:Bounds height="40.0" width="40.0" x="100.0" y="480.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity4" id="BPMNShape_callactivity4">
+        <omgdc:Bounds height="55.0" width="105.0" x="190.0" y="473.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity5" id="BPMNShape_callactivity5">
+        <omgdc:Bounds height="55.0" width="105.0" x="619.0" y="171.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity10" id="BPMNShape_callactivity10">
+        <omgdc:Bounds height="55.0" width="105.0" x="619.0" y="274.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask1" id="BPMNShape_scripttask1">
+        <omgdc:Bounds height="55.0" width="105.0" x="759.0" y="274.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="mailtask1" id="BPMNShape_mailtask1">
+        <omgdc:Bounds height="55.0" width="105.0" x="999.0" y="274.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent2" id="BPMNShape_endevent2">
+        <omgdc:Bounds height="35.0" width="35.0" x="1149.0" y="284.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="parallelgateway2" id="BPMNShape_parallelgateway2">
+        <omgdc:Bounds height="40.0" width="40.0" x="569.0" y="228.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent3" id="BPMNShape_endevent3">
+        <omgdc:Bounds height="35.0" width="35.0" x="895.0" y="181.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway1" id="BPMNShape_exclusivegateway1">
+        <omgdc:Bounds height="40.0" width="40.0" x="909.0" y="282.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent4" id="BPMNShape_endevent4">
+        <omgdc:Bounds height="35.0" width="35.0" x="912.0" y="225.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity11" id="BPMNShape_callactivity11">
+        <omgdc:Bounds height="55.0" width="105.0" x="759.0" y="171.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity13" id="BPMNShape_callactivity13">
+        <omgdc:Bounds height="80.0" width="105.0" x="1441.0" y="408.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity14" id="BPMNShape_callactivity14">
+        <omgdc:Bounds height="69.0" width="105.0" x="619.0" y="75.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask2" id="BPMNShape_scripttask2">
+        <omgdc:Bounds height="55.0" width="105.0" x="759.0" y="82.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway2" id="BPMNShape_exclusivegateway2">
+        <omgdc:Bounds height="40.0" width="40.0" x="909.0" y="89.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent5" id="BPMNShape_endevent5">
+        <omgdc:Bounds height="35.0" width="35.0" x="912.0" y="143.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="mailtask2" id="BPMNShape_mailtask2">
+        <omgdc:Bounds height="55.0" width="105.0" x="999.0" y="82.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent6" id="BPMNShape_endevent6">
+        <omgdc:Bounds height="35.0" width="35.0" x="1149.0" y="92.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity15" id="BPMNShape_callactivity15">
+        <omgdc:Bounds height="55.0" width="105.0" x="68.0" y="718.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway3" id="BPMNShape_exclusivegateway3">
+        <omgdc:Bounds height="40.0" width="40.0" x="344.0" y="725.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="mailtask3" id="BPMNShape_mailtask3">
+        <omgdc:Bounds height="55.0" width="105.0" x="429.0" y="718.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent7" id="BPMNShape_endevent7">
+        <omgdc:Bounds height="35.0" width="35.0" x="579.0" y="728.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask3" id="BPMNShape_scripttask3">
+        <omgdc:Bounds height="55.0" width="105.0" x="204.0" y="718.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent8" id="BPMNShape_endevent8">
+        <omgdc:Bounds height="35.0" width="35.0" x="346.0" y="653.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity24" id="BPMNShape_callactivity24">
+        <omgdc:Bounds height="55.0" width="105.0" x="619.0" y="1.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity25" id="BPMNShape_callactivity25">
+        <omgdc:Bounds height="55.0" width="105.0" x="769.0" y="1.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="servicetask1" id="BPMNShape_servicetask1">
+        <omgdc:Bounds height="55.0" width="105.0" x="919.0" y="1.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent12" id="BPMNShape_endevent12">
+        <omgdc:Bounds height="35.0" width="35.0" x="1069.0" y="11.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="scripttask4" id="BPMNShape_scripttask4">
+        <omgdc:Bounds height="55.0" width="105.0" x="759.0" y="420.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity26" id="BPMNShape_callactivity26">
+        <omgdc:Bounds height="55.0" width="105.0" x="619.0" y="420.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity27" id="BPMNShape_callactivity27">
+        <omgdc:Bounds height="55.0" width="105.0" x="909.0" y="420.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity28" id="BPMNShape_callactivity28">
+        <omgdc:Bounds height="55.0" width="105.0" x="1591.0" y="421.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="inclusivegateway1" id="BPMNShape_inclusivegateway1">
+        <omgdc:Bounds height="40.0" width="40.0" x="99.0" y="228.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity29" id="BPMNShape_callactivity29">
+        <omgdc:Bounds height="55.0" width="105.0" x="190.0" y="152.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity30" id="BPMNShape_callactivity30">
+        <omgdc:Bounds height="55.0" width="105.0" x="190.0" y="221.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity31" id="BPMNShape_callactivity31">
+        <omgdc:Bounds height="55.0" width="105.0" x="190.0" y="292.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="inclusivegateway2" id="BPMNShape_inclusivegateway2">
+        <omgdc:Bounds height="40.0" width="40.0" x="354.0" y="228.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity32" id="BPMNShape_callactivity32">
+        <omgdc:Bounds height="55.0" width="105.0" x="429.0" y="221.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity33" id="BPMNShape_callactivity33">
+        <omgdc:Bounds height="55.0" width="105.0" x="1170.0" y="420.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity34" id="BPMNShape_callactivity34">
+        <omgdc:Bounds height="74.0" width="123.0" x="1290.0" y="517.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity35" id="BPMNShape_callactivity35">
+        <omgdc:Bounds height="55.0" width="105.0" x="1458.0" y="527.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signalintermediatethrowevent1" id="BPMNShape_signalintermediatethrowevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="1608.0" y="537.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity36" id="BPMNShape_callactivity36">
+        <omgdc:Bounds height="55.0" width="105.0" x="1688.0" y="527.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent14" id="BPMNShape_endevent14">
+        <omgdc:Bounds height="35.0" width="35.0" x="1869.0" y="538.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="inclusivegateway3" id="BPMNShape_inclusivegateway3">
+        <omgdc:Bounds height="40.0" width="40.0" x="1331.0" y="428.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="inclusivegateway4" id="BPMNShape_inclusivegateway4">
+        <omgdc:Bounds height="40.0" width="40.0" x="1066.0" y="427.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity38" id="BPMNShape_callactivity38">
+        <omgdc:Bounds height="55.0" width="105.0" x="1170.0" y="340.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="mailtask4" id="BPMNShape_mailtask4">
+        <omgdc:Bounds height="55.0" width="105.0" x="1741.0" y="421.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent15" id="BPMNShape_endevent15">
+        <omgdc:Bounds height="35.0" width="35.0" x="1891.0" y="431.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="flow4" id="BPMNEdge_flow4">
+        <omgdi:waypoint x="36.0" y="500.0"></omgdi:waypoint>
+        <omgdi:waypoint x="100.0" y="500.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow25" id="BPMNEdge_flow25">
+        <omgdi:waypoint x="589.0" y="268.0"></omgdi:waypoint>
+        <omgdi:waypoint x="589.0" y="306.0"></omgdi:waypoint>
+        <omgdi:waypoint x="619.0" y="301.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow26" id="BPMNEdge_flow26">
+        <omgdi:waypoint x="724.0" y="301.0"></omgdi:waypoint>
+        <omgdi:waypoint x="759.0" y="301.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow27" id="BPMNEdge_flow27">
+        <omgdi:waypoint x="864.0" y="301.0"></omgdi:waypoint>
+        <omgdi:waypoint x="909.0" y="302.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow28" id="BPMNEdge_flow28">
+        <omgdi:waypoint x="1104.0" y="301.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1149.0" y="301.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow29" id="BPMNEdge_flow29">
+        <omgdi:waypoint x="589.0" y="228.0"></omgdi:waypoint>
+        <omgdi:waypoint x="589.0" y="198.0"></omgdi:waypoint>
+        <omgdi:waypoint x="619.0" y="198.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow30" id="BPMNEdge_flow30">
+        <omgdi:waypoint x="724.0" y="198.0"></omgdi:waypoint>
+        <omgdi:waypoint x="759.0" y="198.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow31" id="BPMNEdge_flow31">
+        <omgdi:waypoint x="949.0" y="302.0"></omgdi:waypoint>
+        <omgdi:waypoint x="999.0" y="301.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow32" id="BPMNEdge_flow32">
+        <omgdi:waypoint x="929.0" y="282.0"></omgdi:waypoint>
+        <omgdi:waypoint x="929.0" y="260.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow33" id="BPMNEdge_flow33">
+        <omgdi:waypoint x="864.0" y="198.0"></omgdi:waypoint>
+        <omgdi:waypoint x="895.0" y="198.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow39" id="BPMNEdge_flow39">
+        <omgdi:waypoint x="589.0" y="228.0"></omgdi:waypoint>
+        <omgdi:waypoint x="589.0" y="110.0"></omgdi:waypoint>
+        <omgdi:waypoint x="619.0" y="109.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow40" id="BPMNEdge_flow40">
+        <omgdi:waypoint x="724.0" y="109.0"></omgdi:waypoint>
+        <omgdi:waypoint x="759.0" y="109.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow41" id="BPMNEdge_flow41">
+        <omgdi:waypoint x="864.0" y="109.0"></omgdi:waypoint>
+        <omgdi:waypoint x="909.0" y="109.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow42" id="BPMNEdge_flow42">
+        <omgdi:waypoint x="929.0" y="129.0"></omgdi:waypoint>
+        <omgdi:waypoint x="929.0" y="143.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow43" id="BPMNEdge_flow43">
+        <omgdi:waypoint x="949.0" y="109.0"></omgdi:waypoint>
+        <omgdi:waypoint x="999.0" y="109.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow44" id="BPMNEdge_flow44">
+        <omgdi:waypoint x="1104.0" y="109.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1149.0" y="109.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow45" id="BPMNEdge_flow45">
+        <omgdi:waypoint x="295.0" y="500.0"></omgdi:waypoint>
+        <omgdi:waypoint x="347.0" y="500.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow46" id="BPMNEdge_flow46">
+        <omgdi:waypoint x="120.0" y="520.0"></omgdi:waypoint>
+        <omgdi:waypoint x="120.0" y="718.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow47" id="BPMNEdge_flow47">
+        <omgdi:waypoint x="309.0" y="745.0"></omgdi:waypoint>
+        <omgdi:waypoint x="344.0" y="745.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow49" id="BPMNEdge_flow49">
+        <omgdi:waypoint x="384.0" y="745.0"></omgdi:waypoint>
+        <omgdi:waypoint x="429.0" y="745.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow50" id="BPMNEdge_flow50">
+        <omgdi:waypoint x="534.0" y="745.0"></omgdi:waypoint>
+        <omgdi:waypoint x="579.0" y="745.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow51" id="BPMNEdge_flow51">
+        <omgdi:waypoint x="173.0" y="745.0"></omgdi:waypoint>
+        <omgdi:waypoint x="204.0" y="745.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow52" id="BPMNEdge_flow52">
+        <omgdi:waypoint x="364.0" y="725.0"></omgdi:waypoint>
+        <omgdi:waypoint x="363.0" y="688.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow67" id="BPMNEdge_flow67">
+        <omgdi:waypoint x="589.0" y="228.0"></omgdi:waypoint>
+        <omgdi:waypoint x="589.0" y="29.0"></omgdi:waypoint>
+        <omgdi:waypoint x="619.0" y="28.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow68" id="BPMNEdge_flow68">
+        <omgdi:waypoint x="724.0" y="28.0"></omgdi:waypoint>
+        <omgdi:waypoint x="769.0" y="28.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow69" id="BPMNEdge_flow69">
+        <omgdi:waypoint x="874.0" y="28.0"></omgdi:waypoint>
+        <omgdi:waypoint x="919.0" y="28.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow70" id="BPMNEdge_flow70">
+        <omgdi:waypoint x="1024.0" y="28.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1069.0" y="28.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow71" id="BPMNEdge_flow71">
+        <omgdi:waypoint x="589.0" y="268.0"></omgdi:waypoint>
+        <omgdi:waypoint x="589.0" y="448.0"></omgdi:waypoint>
+        <omgdi:waypoint x="619.0" y="447.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow72" id="BPMNEdge_flow72">
+        <omgdi:waypoint x="724.0" y="447.0"></omgdi:waypoint>
+        <omgdi:waypoint x="759.0" y="447.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow73" id="BPMNEdge_flow73">
+        <omgdi:waypoint x="864.0" y="447.0"></omgdi:waypoint>
+        <omgdi:waypoint x="909.0" y="447.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow75" id="BPMNEdge_flow75">
+        <omgdi:waypoint x="1546.0" y="448.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1591.0" y="448.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow77" id="BPMNEdge_flow77">
+        <omgdi:waypoint x="119.0" y="228.0"></omgdi:waypoint>
+        <omgdi:waypoint x="119.0" y="179.0"></omgdi:waypoint>
+        <omgdi:waypoint x="190.0" y="179.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow78" id="BPMNEdge_flow78">
+        <omgdi:waypoint x="139.0" y="248.0"></omgdi:waypoint>
+        <omgdi:waypoint x="190.0" y="248.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow79" id="BPMNEdge_flow79">
+        <omgdi:waypoint x="119.0" y="268.0"></omgdi:waypoint>
+        <omgdi:waypoint x="119.0" y="319.0"></omgdi:waypoint>
+        <omgdi:waypoint x="190.0" y="319.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow80" id="BPMNEdge_flow80">
+        <omgdi:waypoint x="295.0" y="248.0"></omgdi:waypoint>
+        <omgdi:waypoint x="354.0" y="248.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow81" id="BPMNEdge_flow81">
+        <omgdi:waypoint x="295.0" y="179.0"></omgdi:waypoint>
+        <omgdi:waypoint x="373.0" y="179.0"></omgdi:waypoint>
+        <omgdi:waypoint x="374.0" y="228.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow82" id="BPMNEdge_flow82">
+        <omgdi:waypoint x="295.0" y="319.0"></omgdi:waypoint>
+        <omgdi:waypoint x="374.0" y="319.0"></omgdi:waypoint>
+        <omgdi:waypoint x="374.0" y="268.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow83" id="BPMNEdge_flow83">
+        <omgdi:waypoint x="394.0" y="248.0"></omgdi:waypoint>
+        <omgdi:waypoint x="429.0" y="248.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow84" id="BPMNEdge_flow84">
+        <omgdi:waypoint x="534.0" y="248.0"></omgdi:waypoint>
+        <omgdi:waypoint x="569.0" y="248.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow85" id="BPMNEdge_flow85">
+        <omgdi:waypoint x="1014.0" y="447.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1066.0" y="447.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow87" id="BPMNEdge_flow87">
+        <omgdi:waypoint x="120.0" y="480.0"></omgdi:waypoint>
+        <omgdi:waypoint x="119.0" y="268.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow88" id="BPMNEdge_flow88">
+        <omgdi:waypoint x="1371.0" y="448.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1441.0" y="448.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow91" id="BPMNEdge_flow91">
+        <omgdi:waypoint x="140.0" y="500.0"></omgdi:waypoint>
+        <omgdi:waypoint x="190.0" y="500.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow92" id="BPMNEdge_flow92">
+        <omgdi:waypoint x="1275.0" y="447.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1331.0" y="448.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow93" id="BPMNEdge_flow93">
+        <omgdi:waypoint x="1351.0" y="468.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1351.0" y="517.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow94" id="BPMNEdge_flow94">
+        <omgdi:waypoint x="1413.0" y="554.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1458.0" y="554.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow95" id="BPMNEdge_flow95">
+        <omgdi:waypoint x="1563.0" y="554.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1608.0" y="554.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow96" id="BPMNEdge_flow96">
+        <omgdi:waypoint x="1643.0" y="554.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1688.0" y="554.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow97" id="BPMNEdge_flow97">
+        <omgdi:waypoint x="1793.0" y="554.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1869.0" y="555.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow98" id="BPMNEdge_flow98">
+        <omgdi:waypoint x="1106.0" y="447.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1170.0" y="447.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow100" id="BPMNEdge_flow100">
+        <omgdi:waypoint x="1275.0" y="367.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1351.0" y="367.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1351.0" y="428.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow101" id="BPMNEdge_flow101">
+        <omgdi:waypoint x="1086.0" y="427.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1086.0" y="367.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1170.0" y="367.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow102" id="BPMNEdge_flow102">
+        <omgdi:waypoint x="1696.0" y="448.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1741.0" y="448.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow103" id="BPMNEdge_flow103">
+        <omgdi:waypoint x="1846.0" y="448.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1891.0" y="448.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>

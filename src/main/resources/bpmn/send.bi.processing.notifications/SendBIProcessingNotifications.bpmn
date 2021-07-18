@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.activiti.org/test">
+  <signal id="FdlCompleted" name="FdlCompleted" activiti:scope="global"></signal>
+  <signal id="IncomingCompleted" name="IncomingCompleted" activiti:scope="global"></signal>
+  <signal id="FraudCompleted" name="FraudCompleted" activiti:scope="global"></signal>
+  <signal id="AcquiringCompleted" name="AcquiringCompleted" activiti:scope="global"></signal>
+  <process id="SendBIProcessingNotifications" name="SendBIProcessingNotifications" isExecutable="true">
+    <startEvent id="startevent1" name="Start"></startEvent>
+    <sequenceFlow id="flow1" sourceRef="inclusivegateway1" targetRef="parallelgateway2">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${in_startup == 'yes'}]]></conditionExpression>
+    </sequenceFlow>
+    <intermediateCatchEvent id="signalintermediatecatchevent1" name="SignalCatchEvent">
+      <signalEventDefinition signalRef="FdlCompleted"></signalEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="flow2" sourceRef="parallelgateway2" targetRef="signalintermediatecatchevent1"></sequenceFlow>
+    <intermediateCatchEvent id="signalintermediatecatchevent2" name="SignalCatchEvent">
+      <signalEventDefinition signalRef="FraudCompleted"></signalEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="flow3" sourceRef="parallelgateway2" targetRef="signalintermediatecatchevent2"></sequenceFlow>
+    <intermediateCatchEvent id="signalintermediatecatchevent3" name="SignalCatchEvent">
+      <signalEventDefinition signalRef="IncomingCompleted"></signalEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="flow4" sourceRef="parallelgateway2" targetRef="signalintermediatecatchevent3"></sequenceFlow>
+    <sequenceFlow id="flow5" sourceRef="signalintermediatecatchevent2" targetRef="parallelgateway1"></sequenceFlow>
+    <parallelGateway id="parallelgateway1" name="Exclusive Gateway"></parallelGateway>
+    <parallelGateway id="parallelgateway2" name="Inclusive Gateway"></parallelGateway>
+    <sequenceFlow id="flow6" sourceRef="signalintermediatecatchevent3" targetRef="parallelgateway1"></sequenceFlow>
+    <endEvent id="endevent1" name="End"></endEvent>
+    <serviceTask id="mailtask1" name="Send notification" activiti:type="mail">
+      <extensionElements>
+        <activiti:field name="to">
+          <activiti:string><![CDATA[bi_users@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="from">
+          <activiti:string><![CDATA[reports-no-reply@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="charset">
+          <activiti:string><![CDATA[utf8]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="text">
+          <activiti:expression><![CDATA[Добрый день!
+
+Данные, обновленные сегодня (${date}) днём (авторизации/фроды/чарджбэки/репрезентменты/арбитражи и пре-арбитражи/транзакции, обработанные через FDL), доступны в BI.
+
+С уважением,
+
+Отдел технической поддержки]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="subject">
+          <activiti:expression><![CDATA[Доступность данных в BI (${date})]]></activiti:expression>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow9" sourceRef="mailtask1" targetRef="endevent1"></sequenceFlow>
+    <inclusiveGateway id="inclusivegateway1" name="Inclusive Gateway"></inclusiveGateway>
+    <sequenceFlow id="flow11" sourceRef="startevent1" targetRef="inclusivegateway1"></sequenceFlow>
+    <serviceTask id="mailtask2" name="Send delay notification" activiti:type="mail">
+      <extensionElements>
+        <activiti:field name="text">
+          <activiti:expression><![CDATA[Добрый день!
+
+Данные по Decta processing транзакциям, которые были обработаны сегодня (${date}) ночью, на данный момент в BI недоступны. Как только данные станут доступными, вы получите отдельное уведомление.
+
+С уважением,
+
+Отдел технической поддержки
+
+support@decta.com]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="to">
+          <activiti:string><![CDATA[bi_users@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="from">
+          <activiti:string><![CDATA[reports-no-reply@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="subject">
+          <activiti:expression><![CDATA[Доступность данных в BI ( ${date})]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="charset">
+          <activiti:string><![CDATA[utf8]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <endEvent id="endevent3" name="End"></endEvent>
+    <sequenceFlow id="flow19" sourceRef="signalintermediatecatchevent1" targetRef="parallelgateway1"></sequenceFlow>
+    <userTask id="usertask1" name="Wait for Acquiring completion to send notification" activiti:candidateGroups="administrators-optional"></userTask>
+    <sequenceFlow id="flow21" sourceRef="inclusivegateway1" targetRef="usertask1"></sequenceFlow>
+    <sequenceFlow id="flow22" sourceRef="usertask1" targetRef="mailtask2"></sequenceFlow>
+    <boundaryEvent id="boundarytimer1" name="Timer" attachedToRef="usertask1" cancelActivity="true">
+      <timerEventDefinition>
+        <timeCycle>0 0 8 ? * *</timeCycle>
+      </timerEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="flow23" sourceRef="boundarytimer1" targetRef="mailtask2"></sequenceFlow>
+    <boundaryEvent id="boundarysignal1" name="Signal" attachedToRef="usertask1" cancelActivity="true">
+      <signalEventDefinition signalRef="AcquiringCompleted"></signalEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="flow24" sourceRef="boundarysignal1" targetRef="endevent3"></sequenceFlow>
+    <callActivity id="callactivity1" name="Load chb to BI" calledElement="PentahoSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="start_load_CHB" target="jobName"></activiti:in>
+        <activiti:in sourceExpression="/" target="jobDirectory"></activiti:in>
+        <activiti:in sourceExpression="RepositoryBI" target="repository"></activiti:in>
+        <activiti:in sourceExpression="{}" target="jobParams"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow25" sourceRef="parallelgateway1" targetRef="callactivity1"></sequenceFlow>
+    <callActivity id="callactivity2" name="Load frd to BI" calledElement="PentahoSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="start_load_FRD" target="jobName"></activiti:in>
+        <activiti:in sourceExpression="/" target="jobDirectory"></activiti:in>
+        <activiti:in sourceExpression="RepositoryBI" target="repository"></activiti:in>
+        <activiti:in sourceExpression="{}" target="jobParams"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow26" sourceRef="callactivity1" targetRef="callactivity2"></sequenceFlow>
+    <callActivity id="callactivity3" name="Load rtr to BI" calledElement="PentahoSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="start_load_RTR" target="jobName"></activiti:in>
+        <activiti:in sourceExpression="/" target="jobDirectory"></activiti:in>
+        <activiti:in sourceExpression="RepositoryBI" target="repository"></activiti:in>
+        <activiti:in sourceExpression="{}" target="jobParams"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow27" sourceRef="callactivity2" targetRef="callactivity3"></sequenceFlow>
+    <callActivity id="callactivity4" name="Load rpr to BI" calledElement="PentahoSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="start_load_RPR" target="jobName"></activiti:in>
+        <activiti:in sourceExpression="/" target="jobDirectory"></activiti:in>
+        <activiti:in sourceExpression="RepositoryBI" target="repository"></activiti:in>
+        <activiti:in sourceExpression="{}" target="jobParams"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow28" sourceRef="callactivity3" targetRef="callactivity4"></sequenceFlow>
+    <callActivity id="callactivity5" name="Cube refresh" calledElement="CommandExecutorSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="/dwh/CS/scripts/trx_cube_refresh_wrapper.sh" target="command"></activiti:in>
+        <activiti:in sourceExpression="dwh" target="servletUrl"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow30" sourceRef="callactivity6" targetRef="callactivity5"></sequenceFlow>
+    <sequenceFlow id="flow31" sourceRef="callactivity7" targetRef="mailtask1"></sequenceFlow>
+    <intermediateCatchEvent id="signalintermediatecatchevent4" name="SignalCatchEvent">
+      <signalEventDefinition signalRef="AcquiringCompleted"></signalEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="flow32" sourceRef="mailtask2" targetRef="signalintermediatecatchevent4"></sequenceFlow>
+    <serviceTask id="mailtask3" name="Send info notification" activiti:type="mail">
+      <extensionElements>
+        <activiti:field name="to">
+          <activiti:string><![CDATA[bi_users@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="from">
+          <activiti:string><![CDATA[reports-no-reply@decta.com]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="subject">
+          <activiti:expression><![CDATA[Доступность данных в BI ( ${date})]]></activiti:expression>
+        </activiti:field>
+        <activiti:field name="charset">
+          <activiti:string><![CDATA[utf8]]></activiti:string>
+        </activiti:field>
+        <activiti:field name="text">
+          <activiti:expression><![CDATA[Добрый день!
+
+Данные по Decta processing транзакциям, которые были обработаны сегодня (${date}) ночью, доступны в BI.
+С уважением,
+
+Отдел технической поддержки]]></activiti:expression>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow33" sourceRef="signalintermediatecatchevent4" targetRef="mailtask3"></sequenceFlow>
+    <endEvent id="endevent4" name="End"></endEvent>
+    <sequenceFlow id="flow34" sourceRef="mailtask3" targetRef="endevent4"></sequenceFlow>
+    <callActivity id="callactivity6" name="Load arb to BI" calledElement="PentahoSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="start_load_ARB" target="jobName"></activiti:in>
+        <activiti:in sourceExpression="/" target="jobDirectory"></activiti:in>
+        <activiti:in sourceExpression="RepositoryBI" target="repository"></activiti:in>
+        <activiti:in sourceExpression="{}" target="jobParams"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow35" sourceRef="callactivity4" targetRef="callactivity6"></sequenceFlow>
+    <callActivity id="callactivity7" name="Create BI report" calledElement="CommandExecutorSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="dwh" target="servletUrl"></activiti:in>
+        <activiti:in sourceExpression="/dwh/CS/scripts/auto_reports_arbitration_wrapper.sh" target="command"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow36" sourceRef="callactivity5" targetRef="callactivity7"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_SendBIProcessingNotifications">
+    <bpmndi:BPMNPlane bpmnElement="SendBIProcessingNotifications" id="BPMNPlane_SendBIProcessingNotifications">
+      <bpmndi:BPMNShape bpmnElement="startevent1" id="BPMNShape_startevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="120.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signalintermediatecatchevent1" id="BPMNShape_signalintermediatecatchevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="400.0" y="180.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signalintermediatecatchevent2" id="BPMNShape_signalintermediatecatchevent2">
+        <omgdc:Bounds height="35.0" width="35.0" x="400.0" y="340.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signalintermediatecatchevent3" id="BPMNShape_signalintermediatecatchevent3">
+        <omgdc:Bounds height="35.0" width="35.0" x="400.0" y="260.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="parallelgateway1" id="BPMNShape_parallelgateway1">
+        <omgdc:Bounds height="40.0" width="40.0" x="479.0" y="258.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="parallelgateway2" id="BPMNShape_parallelgateway2">
+        <omgdc:Bounds height="40.0" width="40.0" x="310.0" y="257.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent1" id="BPMNShape_endevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="1779.0" y="261.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="mailtask1" id="BPMNShape_mailtask1">
+        <omgdc:Bounds height="55.0" width="105.0" x="1620.0" y="251.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="inclusivegateway1" id="BPMNShape_inclusivegateway1">
+        <omgdc:Bounds height="40.0" width="40.0" x="200.0" y="258.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="mailtask2" id="BPMNShape_mailtask2">
+        <omgdc:Bounds height="64.0" width="121.0" x="357.0" y="412.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent3" id="BPMNShape_endevent3">
+        <omgdc:Bounds height="35.0" width="35.0" x="197.0" y="520.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="usertask1" id="BPMNShape_usertask1">
+        <omgdc:Bounds height="85.0" width="133.0" x="154.0" y="401.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="boundarytimer1" id="BPMNShape_boundarytimer1">
+        <omgdc:Bounds height="30.0" width="30.0" x="266.0" y="383.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="boundarysignal1" id="BPMNShape_boundarysignal1">
+        <omgdc:Bounds height="30.0" width="30.0" x="200.0" y="470.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity1" id="BPMNShape_callactivity1">
+        <omgdc:Bounds height="55.0" width="105.0" x="564.0" y="251.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity2" id="BPMNShape_callactivity2">
+        <omgdc:Bounds height="55.0" width="105.0" x="714.0" y="251.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity3" id="BPMNShape_callactivity3">
+        <omgdc:Bounds height="55.0" width="105.0" x="864.0" y="251.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity4" id="BPMNShape_callactivity4">
+        <omgdc:Bounds height="55.0" width="105.0" x="1014.0" y="251.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity5" id="BPMNShape_callactivity5">
+        <omgdc:Bounds height="55.0" width="105.0" x="1321.0" y="251.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signalintermediatecatchevent4" id="BPMNShape_signalintermediatecatchevent4">
+        <omgdc:Bounds height="35.0" width="35.0" x="523.0" y="427.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="mailtask3" id="BPMNShape_mailtask3">
+        <omgdc:Bounds height="55.0" width="105.0" x="603.0" y="417.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent4" id="BPMNShape_endevent4">
+        <omgdc:Bounds height="35.0" width="35.0" x="753.0" y="427.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity6" id="BPMNShape_callactivity6">
+        <omgdc:Bounds height="55.0" width="105.0" x="1164.0" y="251.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity7" id="BPMNShape_callactivity7">
+        <omgdc:Bounds height="55.0" width="105.0" x="1471.0" y="251.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="flow1" id="BPMNEdge_flow1">
+        <omgdi:waypoint x="240.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="310.0" y="277.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow2" id="BPMNEdge_flow2">
+        <omgdi:waypoint x="330.0" y="257.0"></omgdi:waypoint>
+        <omgdi:waypoint x="329.0" y="197.0"></omgdi:waypoint>
+        <omgdi:waypoint x="400.0" y="197.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow3" id="BPMNEdge_flow3">
+        <omgdi:waypoint x="330.0" y="297.0"></omgdi:waypoint>
+        <omgdi:waypoint x="330.0" y="357.0"></omgdi:waypoint>
+        <omgdi:waypoint x="400.0" y="357.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow4" id="BPMNEdge_flow4">
+        <omgdi:waypoint x="350.0" y="277.0"></omgdi:waypoint>
+        <omgdi:waypoint x="400.0" y="277.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow5" id="BPMNEdge_flow5">
+        <omgdi:waypoint x="435.0" y="357.0"></omgdi:waypoint>
+        <omgdi:waypoint x="499.0" y="357.0"></omgdi:waypoint>
+        <omgdi:waypoint x="499.0" y="298.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow6" id="BPMNEdge_flow6">
+        <omgdi:waypoint x="435.0" y="277.0"></omgdi:waypoint>
+        <omgdi:waypoint x="479.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow9" id="BPMNEdge_flow9">
+        <omgdi:waypoint x="1725.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1779.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow11" id="BPMNEdge_flow11">
+        <omgdi:waypoint x="155.0" y="277.0"></omgdi:waypoint>
+        <omgdi:waypoint x="200.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow19" id="BPMNEdge_flow19">
+        <omgdi:waypoint x="435.0" y="197.0"></omgdi:waypoint>
+        <omgdi:waypoint x="499.0" y="197.0"></omgdi:waypoint>
+        <omgdi:waypoint x="499.0" y="258.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow21" id="BPMNEdge_flow21">
+        <omgdi:waypoint x="220.0" y="298.0"></omgdi:waypoint>
+        <omgdi:waypoint x="220.0" y="401.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow22" id="BPMNEdge_flow22">
+        <omgdi:waypoint x="287.0" y="443.0"></omgdi:waypoint>
+        <omgdi:waypoint x="357.0" y="444.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow23" id="BPMNEdge_flow23">
+        <omgdi:waypoint x="296.0" y="398.0"></omgdi:waypoint>
+        <omgdi:waypoint x="417.0" y="412.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow24" id="BPMNEdge_flow24">
+        <omgdi:waypoint x="215.0" y="500.0"></omgdi:waypoint>
+        <omgdi:waypoint x="214.0" y="520.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow25" id="BPMNEdge_flow25">
+        <omgdi:waypoint x="519.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="564.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow26" id="BPMNEdge_flow26">
+        <omgdi:waypoint x="669.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="714.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow27" id="BPMNEdge_flow27">
+        <omgdi:waypoint x="819.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="864.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow28" id="BPMNEdge_flow28">
+        <omgdi:waypoint x="969.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1014.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow30" id="BPMNEdge_flow30">
+        <omgdi:waypoint x="1269.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1321.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow31" id="BPMNEdge_flow31">
+        <omgdi:waypoint x="1576.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1620.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow32" id="BPMNEdge_flow32">
+        <omgdi:waypoint x="478.0" y="444.0"></omgdi:waypoint>
+        <omgdi:waypoint x="523.0" y="444.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow33" id="BPMNEdge_flow33">
+        <omgdi:waypoint x="558.0" y="444.0"></omgdi:waypoint>
+        <omgdi:waypoint x="603.0" y="444.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow34" id="BPMNEdge_flow34">
+        <omgdi:waypoint x="708.0" y="444.0"></omgdi:waypoint>
+        <omgdi:waypoint x="753.0" y="444.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow35" id="BPMNEdge_flow35">
+        <omgdi:waypoint x="1119.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1164.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow36" id="BPMNEdge_flow36">
+        <omgdi:waypoint x="1426.0" y="278.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1471.0" y="278.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>

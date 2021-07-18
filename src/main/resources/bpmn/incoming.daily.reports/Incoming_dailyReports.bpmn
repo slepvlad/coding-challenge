@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="http://www.activiti.org/test">
+  <signal id="MC_API.QueuesUpdated" name="MC_API.QueuesUpdated" activiti:scope="global"></signal>
+  <process id="Incoming_dailyReports" name="Incoming_dailyReports" isExecutable="true">
+    <documentation>PRC-12474 A process which start queue update in MC API and then produces daily and weekly all chb/rr reports for RAN
+Mandatory params:
+* pid
+* date</documentation>
+    <scriptTask id="scripttask1" name="Set weekend status" scriptFormat="javascript" activiti:autoStoreVariables="false">
+      <script>var date = new Date();
+if (date.getDay() == 5) {
+  execution.setVariable("createWeeklyReports", "true");
+} else {
+  execution.setVariable("createWeeklyReports", "false");
+}</script>
+    </scriptTask>
+    <sequenceFlow id="flow19" sourceRef="scripttask1" targetRef="inclusivegateway2"></sequenceFlow>
+    <startEvent id="startevent1" name="Start"></startEvent>
+    <inclusiveGateway id="inclusivegateway2" name="Parallel Gateway"></inclusiveGateway>
+    <inclusiveGateway id="inclusivegateway3" name="Parallel Gateway"></inclusiveGateway>
+    <callActivity id="callactivity26" name="Daily all chargeback report" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="chrgbck_Daily" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{}" target="sqlParams"></activiti:in>
+        <activiti:in sourceExpression="RB/in_file/combined_reports/chrgbck_all_${pid}.xls" target="exportFile"></activiti:in>
+        <activiti:in sourceExpression="xls" target="exportFormat"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow80" sourceRef="inclusivegateway2" targetRef="callactivity26"></sequenceFlow>
+    <callActivity id="callactivity27" name="Daily all rr report" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="rtrvl_Daily" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{}" target="sqlParams"></activiti:in>
+        <activiti:in sourceExpression="RB/in_file/combined_reports/rr_all_${pid}.xls" target="exportFile"></activiti:in>
+        <activiti:in sourceExpression="xls" target="exportFormat"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow82" sourceRef="inclusivegateway2" targetRef="callactivity27"></sequenceFlow>
+    <callActivity id="callactivity28" name="Weekly all chargeback report" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="chrgbck_Weekly" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{}" target="sqlParams"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in sourceExpression="RB/in_file/combined_reports/chrgbck_all_weekly_${pid}.xls" target="exportFile"></activiti:in>
+        <activiti:in sourceExpression="xls" target="exportFormat"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <callActivity id="callactivity29" name="Weekly all rr report" calledElement="SQLStatementSubprocess">
+      <extensionElements>
+        <activiti:in sourceExpression="rtrvl_Weekly" target="sqlTask"></activiti:in>
+        <activiti:in sourceExpression="{}" target="sqlParams"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+        <activiti:in sourceExpression="RB/in_file/combined_reports/rr_all_weekly_${pid}.xls" target="exportFile"></activiti:in>
+        <activiti:in sourceExpression="xls" target="exportFormat"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow87" sourceRef="callactivity28" targetRef="callactivity29"></sequenceFlow>
+    <exclusiveGateway id="exclusivegateway5" name="Exclusive Gateway"></exclusiveGateway>
+    <sequenceFlow id="flow89" sourceRef="inclusivegateway2" targetRef="exclusivegateway5"></sequenceFlow>
+    <sequenceFlow id="flow90" sourceRef="exclusivegateway5" targetRef="inclusivegateway3">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${createWeeklyReports == 'false'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow91" sourceRef="exclusivegateway5" targetRef="callactivity28">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${createWeeklyReports == 'true'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow92" sourceRef="callactivity29" targetRef="inclusivegateway3"></sequenceFlow>
+    <callActivity id="callactivity30" name="Transfer files to sftp" calledElement="FileTransfer">
+      <extensionElements>
+        <activiti:in sourceExpression="CombinedReportsToSftp" target="ftTask"></activiti:in>
+        <activiti:in sourceExpression="[]" target="ftParams"></activiti:in>
+        <activiti:in source="pid" target="pid"></activiti:in>
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flow101" sourceRef="startevent1" targetRef="timerintermediatecatchevent1"></sequenceFlow>
+    <sequenceFlow id="flow102" sourceRef="callactivity26" targetRef="inclusivegateway3"></sequenceFlow>
+    <sequenceFlow id="flow103" sourceRef="callactivity27" targetRef="inclusivegateway3"></sequenceFlow>
+    <sequenceFlow id="flow104" sourceRef="inclusivegateway3" targetRef="callactivity30"></sequenceFlow>
+    <endEvent id="endevent5" name="End"></endEvent>
+    <sequenceFlow id="flow105" sourceRef="servicetask2" targetRef="endevent5"></sequenceFlow>
+    <serviceTask id="servicetask1" name="Update queues" activiti:class="com.decta.util.activiti.remote.SignalSender">
+      <extensionElements>
+        <activiti:field name="signalName">
+          <activiti:string><![CDATA[MC_API.updateQueues]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow106" sourceRef="signalintermediatecatchevent1" targetRef="scripttask1"></sequenceFlow>
+    <intermediateCatchEvent id="timerintermediatecatchevent1" name="TimerCatchEvent">
+      <timerEventDefinition>
+        <timeDuration>PT1M</timeDuration>
+      </timerEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="flow107" sourceRef="timerintermediatecatchevent1" targetRef="servicetask1"></sequenceFlow>
+    <serviceTask id="servicetask2" name="Start chargeback loading" activiti:class="com.decta.util.activiti.remote.SignalSender">
+      <extensionElements>
+        <activiti:field name="signalName">
+          <activiti:string><![CDATA[MC_API.downloadChargebacks]]></activiti:string>
+        </activiti:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow108" sourceRef="callactivity30" targetRef="servicetask2"></sequenceFlow>
+    <intermediateCatchEvent id="signalintermediatecatchevent1" name="SignalCatchEvent">
+      <signalEventDefinition signalRef="MC_API.QueuesUpdated"></signalEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="flow109" sourceRef="servicetask1" targetRef="signalintermediatecatchevent1"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Incoming_dailyReports">
+    <bpmndi:BPMNPlane bpmnElement="Incoming_dailyReports" id="BPMNPlane_Incoming_dailyReports">
+      <bpmndi:BPMNShape bpmnElement="scripttask1" id="BPMNShape_scripttask1">
+        <omgdc:Bounds height="55.0" width="105.0" x="530.0" y="300.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="startevent1" id="BPMNShape_startevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="161.0" y="310.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="inclusivegateway2" id="BPMNShape_inclusivegateway2">
+        <omgdc:Bounds height="40.0" width="40.0" x="681.0" y="309.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="inclusivegateway3" id="BPMNShape_inclusivegateway3">
+        <omgdc:Bounds height="40.0" width="40.0" x="977.0" y="309.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity26" id="BPMNShape_callactivity26">
+        <omgdc:Bounds height="74.0" width="138.0" x="769.0" y="293.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity27" id="BPMNShape_callactivity27">
+        <omgdc:Bounds height="69.0" width="124.0" x="776.0" y="184.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity28" id="BPMNShape_callactivity28">
+        <omgdc:Bounds height="75.0" width="135.0" x="634.0" y="497.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity29" id="BPMNShape_callactivity29">
+        <omgdc:Bounds height="73.0" width="135.0" x="818.0" y="498.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway5" id="BPMNShape_exclusivegateway5">
+        <omgdc:Bounds height="40.0" width="40.0" x="681.0" y="410.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="callactivity30" id="BPMNShape_callactivity30">
+        <omgdc:Bounds height="74.0" width="105.0" x="1057.0" y="291.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent5" id="BPMNShape_endevent5">
+        <omgdc:Bounds height="35.0" width="35.0" x="1380.0" y="310.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="servicetask1" id="BPMNShape_servicetask1">
+        <omgdc:Bounds height="55.0" width="105.0" x="281.0" y="300.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="timerintermediatecatchevent1" id="BPMNShape_timerintermediatecatchevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="221.0" y="310.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="servicetask2" id="BPMNShape_servicetask2">
+        <omgdc:Bounds height="80.0" width="121.0" x="1207.0" y="288.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="signalintermediatecatchevent1" id="BPMNShape_signalintermediatecatchevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="431.0" y="310.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="flow19" id="BPMNEdge_flow19">
+        <omgdi:waypoint x="635.0" y="327.0"></omgdi:waypoint>
+        <omgdi:waypoint x="681.0" y="329.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow80" id="BPMNEdge_flow80">
+        <omgdi:waypoint x="721.0" y="329.0"></omgdi:waypoint>
+        <omgdi:waypoint x="769.0" y="330.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow82" id="BPMNEdge_flow82">
+        <omgdi:waypoint x="701.0" y="309.0"></omgdi:waypoint>
+        <omgdi:waypoint x="701.0" y="218.0"></omgdi:waypoint>
+        <omgdi:waypoint x="776.0" y="218.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow87" id="BPMNEdge_flow87">
+        <omgdi:waypoint x="769.0" y="534.0"></omgdi:waypoint>
+        <omgdi:waypoint x="818.0" y="534.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow89" id="BPMNEdge_flow89">
+        <omgdi:waypoint x="701.0" y="349.0"></omgdi:waypoint>
+        <omgdi:waypoint x="701.0" y="410.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow90" id="BPMNEdge_flow90">
+        <omgdi:waypoint x="721.0" y="430.0"></omgdi:waypoint>
+        <omgdi:waypoint x="996.0" y="429.0"></omgdi:waypoint>
+        <omgdi:waypoint x="997.0" y="349.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow91" id="BPMNEdge_flow91">
+        <omgdi:waypoint x="701.0" y="450.0"></omgdi:waypoint>
+        <omgdi:waypoint x="701.0" y="497.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow92" id="BPMNEdge_flow92">
+        <omgdi:waypoint x="953.0" y="534.0"></omgdi:waypoint>
+        <omgdi:waypoint x="996.0" y="535.0"></omgdi:waypoint>
+        <omgdi:waypoint x="997.0" y="349.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow101" id="BPMNEdge_flow101">
+        <omgdi:waypoint x="196.0" y="327.0"></omgdi:waypoint>
+        <omgdi:waypoint x="221.0" y="327.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow102" id="BPMNEdge_flow102">
+        <omgdi:waypoint x="907.0" y="330.0"></omgdi:waypoint>
+        <omgdi:waypoint x="977.0" y="329.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow103" id="BPMNEdge_flow103">
+        <omgdi:waypoint x="900.0" y="218.0"></omgdi:waypoint>
+        <omgdi:waypoint x="996.0" y="218.0"></omgdi:waypoint>
+        <omgdi:waypoint x="997.0" y="309.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow104" id="BPMNEdge_flow104">
+        <omgdi:waypoint x="1017.0" y="329.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1057.0" y="328.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow105" id="BPMNEdge_flow105">
+        <omgdi:waypoint x="1328.0" y="328.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1380.0" y="327.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow106" id="BPMNEdge_flow106">
+        <omgdi:waypoint x="466.0" y="327.0"></omgdi:waypoint>
+        <omgdi:waypoint x="530.0" y="327.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow107" id="BPMNEdge_flow107">
+        <omgdi:waypoint x="256.0" y="327.0"></omgdi:waypoint>
+        <omgdi:waypoint x="281.0" y="327.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow108" id="BPMNEdge_flow108">
+        <omgdi:waypoint x="1162.0" y="328.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1207.0" y="328.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow109" id="BPMNEdge_flow109">
+        <omgdi:waypoint x="386.0" y="327.0"></omgdi:waypoint>
+        <omgdi:waypoint x="431.0" y="327.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
