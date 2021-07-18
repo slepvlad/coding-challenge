@@ -1,19 +1,31 @@
 package org.decta;
 
-import org.jdom2.Attribute;
+import com.mxgraph.layout.mxCircleLayout;
+import com.mxgraph.layout.mxIGraphLayout;
+import com.mxgraph.util.mxCellRenderer;
 import org.jdom2.Content;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
+import org.jgrapht.Graph;
+import org.jgrapht.ext.JGraphXAdapter;
+import org.jgrapht.graph.DefaultDirectedGraph;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.File;
-import java.util.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class BpmnParserImpl implements BpmnParser {
 
     private static final String BPMN_PROCESS = "process";
     private static final String SIGNAL_EVENT_DEFINITION = "signalEventDefinition";
+    private static final String SIGNAL_REF = "signalRef";
 
     private final FileReader fileReader;
 
@@ -25,10 +37,8 @@ public class BpmnParserImpl implements BpmnParser {
     @Override
     public List<Signal> parse(String path) {
         List<File> files = fileReader.readFile(path);
-        Map<String, Set<String>> processorNameToSignalDefinitions = new HashMap<>();
         List<Signal> signals = new ArrayList<>();
         for (File file : files) {
-            //System.out.println(file.getPath());
             try {
                 SAXBuilder sax = new SAXBuilder();
                 Document doc = sax.build(file);
@@ -36,38 +46,7 @@ public class BpmnParserImpl implements BpmnParser {
                 List<Content> list = rootNode.getContent();
                 for (Content content : list) {
                     if (content instanceof Element element) {
-                        if ("signal".equals(element.getName())) {
-                            Map<String, String> map = element.getAttributes()
-                                    .stream()
-                                    .collect(Collectors.toMap(Attribute::getName, Attribute::getValue));
-                            System.out.println(map);
-                            if (Objects.nonNull(map.get("scope")) && map.size() == 3) {
-                                processorNameToSignalDefinitions.computeIfAbsent(file.getName(), k -> new HashSet<>());
-                                processorNameToSignalDefinitions.get(file.getName()).add(map.get("id"));
-                            }
-                        } else if (BPMN_PROCESS.equals(element.getName())) {
-                            List<Content> processContentList = element.getContent();
-                            for (Content processContent : processContentList) {
-                                if (processContent instanceof Element processElement) {
-                                    List<Element> elements = processElement.getContent().stream()
-                                            .filter(item -> item instanceof Element)
-                                            .map(item -> (Element) item)
-                                            .filter(item -> SIGNAL_EVENT_DEFINITION.equals((item).getName()))
-                                            .collect(Collectors.toList());
-
-                                    if (!elements.isEmpty()) {
-                                        System.out.println(elements);
-                                        for (Element signalElement : elements) {
-                                            Direction direction = Direction.getDirection(((Element) processContent).getName());
-                                            Signal signal = new Signal(file.getName(),
-                                                    signalElement.getAttributeValue("signalRef"),
-                                                    direction);
-                                            signals.add(signal);
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        signals.addAll(parseElement(element, file.getName()));
                     }
                 }
 
@@ -79,36 +58,82 @@ public class BpmnParserImpl implements BpmnParser {
         return signals;
     }
 
- /*   public void readFile(List<File> bpmnFiles, File file) {
-        if (file.isDirectory()) {
-            File[] files = file.listFiles();
-            //ToDo fix this ugly
-            if (files != null) {
-                for (File value : files) {
-                    readFile(bpmnFiles, value);
+    @Override
+    public void getMatchedSignals(List<Signal> signals) {
+        Map<String, List<Signal>> map = signals.stream()
+                .collect(Collectors.groupingBy(Signal::signalName));
+        draw(map);
+    }
+
+    private void draw(Map<String, List<Signal>> signalNameToSignals) {
+        Graph<String, SignalNameEdge> graph = new DefaultDirectedGraph<>(SignalNameEdge.class);
+        for (String signalName : signalNameToSignals.keySet()) {
+            List<Signal> inputSignals = new ArrayList<>();
+            List<Signal> outputSignals = new ArrayList<>();
+            signalNameToSignals.get(signalName)
+                    .forEach(signal -> {
+                        if (Direction.INPUT.equals(signal.direction())) {
+                            inputSignals.add(signal);
+                        }
+                        if (Direction.OUTPUT.equals(signal.direction())) {
+                            outputSignals.add(signal);
+                        }
+                    });
+
+            if (inputSignals.size() > 0 && outputSignals.size() > 0) {
+                signalNameToSignals.get(signalName).forEach(signal -> {
+                    graph.addVertex(signal.processorName());
+                });
+
+                for (Signal output : outputSignals) {
+                    for (Signal input : inputSignals) {
+                        graph.addEdge(output.processorName(), input.processorName(), new SignalNameEdge(signalName));
+                    }
                 }
             }
-        } else {
-            if (BPMN_EXTENSION.equals(getExtension(file.getName()))) {
-                bpmnFiles.add(file);
-            }
+        }
+        draw(graph);
+    }
+
+    private void draw(Graph<String, SignalNameEdge> graph) {
+        try {
+            JGraphXAdapter<String, SignalNameEdge> graphAdapter = new JGraphXAdapter<>(graph);
+            mxIGraphLayout layout = new mxCircleLayout(graphAdapter);
+            layout.execute(graphAdapter.getDefaultParent());
+
+            BufferedImage image =
+                    mxCellRenderer.createBufferedImage(graphAdapter, null, 2, Color.WHITE, true, null);
+            File imgFile = new File("src/main/resources/graph.png");
+            imgFile.createNewFile();
+            ImageIO.write(image, "PNG", imgFile);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-    private String getExtension(String filename) {
-        if (Objects.isNull(filename) || filename.isEmpty()) {
-            return EMPTY_STRING;
+    private List<Signal> parseElement(Element element, String fileName) {
+        List<Signal> signals = new ArrayList<>();
+        if (BPMN_PROCESS.equals(element.getName())) {
+            List<Content> processContentList = element.getContent();
+            for (Content processContent : processContentList) {
+                if (processContent instanceof Element processElement) {
+                    List<Element> elements = getSignalElements(processElement);
+                    for (Element signalElement : elements) {
+                        Direction direction = Direction.getDirection(((Element) processContent).getName());
+                        Signal signal = new Signal(fileName, signalElement.getAttributeValue(SIGNAL_REF), direction);
+                        signals.add(signal);
+                    }
+                }
+            }
         }
-        if (!filename.contains(".")) {
-            return EMPTY_STRING;
-        }
+        return signals;
+    }
 
-        String[] fileNames = filename.split("\\.");
-
-        if (filename.length() < 2) {
-            return EMPTY_STRING;
-        }
-
-        return fileNames[fileNames.length - 1];
-    }*/
+    private List<Element> getSignalElements(Element processElement) {
+        return processElement.getContent().stream()
+                .filter(item -> item instanceof Element)
+                .map(item -> (Element) item)
+                .filter(item -> BpmnParserImpl.SIGNAL_EVENT_DEFINITION.equals((item).getName()))
+                .collect(Collectors.toList());
+    }
 }

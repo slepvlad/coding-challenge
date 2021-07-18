@@ -17,5 +17,6 @@ public class App {
         BpmnParser parser = new BpmnParserImpl(fileReader);
         List<Signal> signals = parser.parse(pathForScan);
         System.out.println(signals);
+        parser.getMatchedSignals(signals);
     }
 }
